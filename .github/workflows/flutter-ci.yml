@@ -27,6 +27,9 @@ jobs:
           channel: 'stable'   # always resolves to current stable Dart/Flutter — avoids pin drift like this failure
           cache: true
 
+      - name: Generate Flutter platform scaffolding
+        run: flutter create . --org com.scandis --project-name scandis --platforms=android
+
       - name: Install dependencies
         run: flutter pub get
 
