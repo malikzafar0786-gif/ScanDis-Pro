@@ -25,29 +25,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version: '3.24.0'
+          flutter-version: '3.19.6'
           cache: true
 
       - name: Create Flutter project shell scaffolding
         run: flutter create . --org com.yourcompany --project-name scandis
-
-      - name: Force minSdk to 24 for modern plugins
-        run: |
-          BUILD_GRADLE="android/app/build.gradle"
-          if [ -f "$BUILD_GRADLE" ]; then
-            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' "$BUILD_GRADLE"
-            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' "$BUILD_GRADLE"
-          fi
-
-      - name: Update Kotlin version for modern Gradle
-        run: |
-          SETTINGS_GRADLE="android/settings.gradle"
-          if [ -f "$SETTINGS_GRADLE" ]; then
-            sed -i 's/version "1.8.22"/version "1.9.24"/g' "$SETTINGS_GRADLE"
-            sed -i 's/version "1.9.0"/version "1.9.24"/g' "$SETTINGS_GRADLE"
-            sed -i 's/kotlin-android/org.jetbrains.kotlin.android/g' "$SETTINGS_GRADLE"
-            sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.24"/g' "$SETTINGS_GRADLE"
-          fi
 
       - name: Install dependencies
         run: flutter pub get
