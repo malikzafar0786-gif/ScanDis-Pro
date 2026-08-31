@@ -15,6 +15,9 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Create Flutter project shell scaffolding
+        run: flutter create . --org com.yourcompany --project-name scandis
+
       - name: Set up Java (required by Android Gradle build)
         uses: actions/setup-java@v4
         with:
@@ -24,14 +27,20 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'   # always resolves to current stable Dart/Flutter — avoids pin drift like this failure
+          channel: 'stable'
+          flutter-version: '3.22.0'
           cache: true
-
-      - name: Generate Flutter platform scaffolding
-        run: flutter create . --org com.scandis --project-name scandis --platforms=android
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Fix Isar namespace for AGP
+        run: |
+          ISAR_GRADLE="$HOME/.pub-cache/hosted/pub.dev/isar_flutter_libs-3.1.0+1/android/build.gradle"
+          if [ -f "$ISAR_GRADLE" ]; then
+            echo "Patching Isar build.gradle..."
+            sed -i 's/android {/android {\n    namespace "dev.isar.isar_flutter_libs"/' "$ISAR_GRADLE"
+          fi
 
       - name: Generate Isar schema code
         run: dart run build_runner build --delete-conflicting-outputs
