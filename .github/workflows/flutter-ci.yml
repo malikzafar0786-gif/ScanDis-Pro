@@ -45,6 +45,8 @@ jobs:
           if [ -f "$SETTINGS_GRADLE" ]; then
             sed -i 's/version "1.8.22"/version "1.9.24"/g' "$SETTINGS_GRADLE"
             sed -i 's/version "1.9.0"/version "1.9.24"/g' "$SETTINGS_GRADLE"
+            sed -i 's/kotlin-android/org.jetbrains.kotlin.android/g' "$SETTINGS_GRADLE"
+            sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.24"/g' "$SETTINGS_GRADLE"
           fi
 
       - name: Install dependencies
