@@ -31,6 +31,14 @@ jobs:
       - name: Create Flutter project shell scaffolding
         run: flutter create . --org com.yourcompany --project-name scandis
 
+      - name: Force minSdk to 24 for modern plugins
+        run: |
+          BUILD_GRADLE="android/app/build.gradle"
+          if [ -f "$BUILD_GRADLE" ]; then
+            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' "$BUILD_GRADLE"
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/g' "$BUILD_GRADLE"
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
