@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch: {}   # lets you trigger it manually from the Actions tab
+  workflow_dispatch: {}
 
 jobs:
   build:
@@ -14,9 +14,6 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
-      - name: Create Flutter project shell scaffolding
-        run: flutter create . --org com.yourcompany --project-name scandis
 
       - name: Set up Java (required by Android Gradle build)
         uses: actions/setup-java@v4
@@ -30,6 +27,9 @@ jobs:
           channel: 'stable'
           flutter-version: '3.22.0'
           cache: true
+
+      - name: Create Flutter project shell scaffolding
+        run: flutter create . --org com.yourcompany --project-name scandis
 
       - name: Install dependencies
         run: flutter pub get
@@ -47,11 +47,11 @@ jobs:
 
       - name: Analyze
         run: flutter analyze
-        continue-on-error: true   # remove once the codebase is lint-clean
+        continue-on-error: true
 
       - name: Run tests
         run: flutter test
-        continue-on-error: true   # remove once a test/ suite exists
+        continue-on-error: true
 
       - name: Build debug APK
         run: flutter build apk --debug
