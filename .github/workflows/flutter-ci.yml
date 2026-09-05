@@ -1,0 +1,122 @@
+name: ScanDis CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: {}   # lets you trigger it manually from the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Java (required by Android Gradle build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'   # always resolves to current stable Dart/Flutter — avoids pin drift like this failure
+          cache: true
+
+      - name: Generate missing platform folders (android/ios)
+        # This repo ships only lib/ + pubspec.yaml — no local Flutter SDK needed
+        # on your machine. This step scaffolds android/ and ios/ directly in CI
+        # if they don't already exist, without touching lib/ or pubspec.yaml.
+        # Must run before `pub get` so plugins register their platform code.
+        run: flutter create --platforms=android,ios --org com.scandis .
+
+      - name: Patch Android build for isar_flutter_libs namespace bug
+        # Known, still-open upstream bug: isar_flutter_libs 3.1.0+1 never added
+        # the `namespace` that Android Gradle Plugin 8+ requires.
+        # See https://github.com/isar/isar/issues/1354 — this is the standard
+        # community workaround: auto-assign a namespace (read from that
+        # plugin's own AndroidManifest.xml `package` attribute) to any
+        # subproject that's missing one, at Gradle configuration time.
+        run: |
+          if [ -f android/build.gradle.kts ]; then
+            cat >> android/build.gradle.kts << 'EOF'
+
+          subprojects {
+              val fixNamespace: () -> Unit = fix@{
+                  val androidExt = project.extensions.findByName("android")
+                  if (androidExt !is com.android.build.gradle.BaseExtension || androidExt.namespace != null) return@fix
+                  val manifestFile = project.file("src/main/AndroidManifest.xml")
+                  if (!manifestFile.exists()) return@fix
+                  val text = manifestFile.readText()
+                  val match = Regex("package=\"([^\"]+)\"").find(text)
+                  if (match != null) {
+                      androidExt.namespace = match.groupValues[1]
+                  }
+              }
+              // Flutter's own generated build.gradle.kts forces early evaluation
+              // of :app via evaluationDependsOn(":app"), so by the time this runs
+              // some subprojects may already be evaluated — calling afterEvaluate
+              // on those throws "already evaluated". Apply immediately if so.
+              if (project.state.executed) {
+                  fixNamespace()
+              } else {
+                  project.afterEvaluate { fixNamespace() }
+              }
+          }
+          EOF
+          elif [ -f android/build.gradle ]; then
+            cat >> android/build.gradle << 'EOF'
+
+          subprojects {
+              def fixNamespace = {
+                  def androidExt = project.extensions.findByName('android')
+                  if (androidExt == null || androidExt.namespace != null) return
+                  def manifestFile = project.file('src/main/AndroidManifest.xml')
+                  if (!manifestFile.exists()) return
+                  def manifest = new XmlSlurper().parse(manifestFile)
+                  def packageName = manifest.@package.text()
+                  if (packageName) {
+                      androidExt.namespace = packageName
+                  }
+              }
+              // Flutter's own generated build.gradle forces early evaluation of
+              // :app via evaluationDependsOn(":app"), so by the time this runs
+              // some subprojects may already be evaluated — calling afterEvaluate
+              // on those throws "already evaluated". Apply immediately if so.
+              if (project.state.executed) {
+                  fixNamespace()
+              } else {
+                  project.afterEvaluate { fixNamespace() }
+              }
+          }
+          EOF
+          else
+            echo "No android/build.gradle(.kts) found — skipping namespace patch."
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate Isar schema code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        run: flutter analyze
+        continue-on-error: true   # remove once the codebase is lint-clean
+
+      - name: Run tests
+        run: flutter test
+        continue-on-error: true   # remove once a test/ suite exists
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scandis-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
